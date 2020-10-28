@@ -1,9 +1,9 @@
 """ Sensor for lock-manager """
 
-from .const import CONF_ENTITY_ID, CONF_SLOTS, CONF_LOCK_NAME
+from .const import CONF_ENTITY_ID, CONF_SLOTS, CONF_LOCK_NAME, ZWAVE_NETWORK
 from datetime import timedelta
 from homeassistant.components.ozw import DOMAIN as OZW_DOMAIN
-from openzwavemqtt.const import CommandClass, ValueIndex
+from openzwavemqtt.const import CommandClass
 from homeassistant.helpers.entity import Entity
 from homeassistant.util import Throttle
 import logging
@@ -12,6 +12,7 @@ import logging
 MANAGER = "manager"
 ATTR_VALUES = "values"
 ATTR_NODE_ID = "node_id"
+COMMAND_CLASS_USER_CODE = 99
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -45,7 +46,7 @@ class CodeSlotsData:
         self._entity_id = config.get(CONF_ENTITY_ID)
         self._data = None
 
-        self.update = Throttle(timedelta(seconds=10))(self.update)
+        self.update = Throttle(timedelta(seconds=5))(self.update)
 
     def update(self):
         """Get the latest data"""
@@ -56,7 +57,7 @@ class CodeSlotsData:
         # data["node_id"] = _get_node_id(self._hass, self._entity_id)
         data[ATTR_NODE_ID] = self._get_node_id()
 
-        # only pull the codes for ozw
+        # pull the codes for ozw
         if OZW_DOMAIN in self._hass.data:
             if data[ATTR_NODE_ID] is not None:
                 manager = self._hass.data[OZW_DOMAIN][MANAGER]
@@ -67,8 +68,41 @@ class CodeSlotsData:
                 )
                 for value in lock_values:
                     if value.command_class == CommandClass.USER_CODE:
+                        _LOGGER.debug(
+                            "DEBUG: code_slot_%s value: %s",
+                            str(value.index),
+                            str(value.value),
+                        )
+                        # do not update if the code contains *s
+                        if "*" in str(value.value):
+                            _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
+                            continue
                         sensor_name = f"code_slot_{value.index}"
                         data[sensor_name] = value.value
+
+                self._data = data
+
+        # pull codes for zwave
+        elif ZWAVE_NETWORK in self._hass.data:
+            if data[ATTR_NODE_ID] is not None:
+                network = self._hass.data[ZWAVE_NETWORK]
+                lock_values = (
+                    network.nodes[data[ATTR_NODE_ID]]
+                    .get_values(class_id=COMMAND_CLASS_USER_CODE)
+                    .values()
+                )
+                for value in lock_values:
+                    _LOGGER.debug(
+                        "DEBUG: code_slot_%s value: %s",
+                        str(value.index),
+                        str(value.value),
+                    )
+                    # do not update if the code contains *s
+                    if "*" in str(value.value):
+                        _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
+                        continue
+                    sensor_name = f"code_slot_{value.index}"
+                    data[sensor_name] = value.value
 
                 self._data = data
 
@@ -76,7 +110,14 @@ class CodeSlotsData:
         data = None
         test = self._hass.states.get(self._entity_id)
         if test is not None:
-            data = test.attributes["node_id"]
+            try:
+                data = test.attributes["node_id"]
+            except Exception as err:
+                _LOGGER.error(
+                    "Error acquiring node id from entity %s: %s",
+                    self._entity_id,
+                    str(err),
+                )
 
         return data
 
@@ -97,7 +138,7 @@ class CodesSensor(Entity):
     @property
     def unique_id(self):
         """Return a unique, Home Assistant friendly identifier for this entity."""
-        return f"{self._name}_{self._unique_id}"
+        return f"{self._lock_name}_{self._name}_{self._unique_id}"
 
     @property
     def name(self):
@@ -130,4 +171,9 @@ class CodesSensor(Entity):
         # Using a dict to send the data back
 
         if self.data._data is not None:
-            self._state = self.data._data[self._name]
+            try:
+                self._state = self.data._data[self._name]
+            except Exception as err:
+                _LOGGER.warning(
+                    "Code slot %s had no value: %s", str(self._name), str(err)
+                )

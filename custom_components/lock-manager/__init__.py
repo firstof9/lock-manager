@@ -6,6 +6,11 @@ from homeassistant.helpers import config_validation as cv, entity_platform
 import logging
 import os
 from .const import (
+    ATTR_NAME,
+    ATTR_CODE_SLOT,
+    ATTR_ENTITY_ID,
+    ATTR_NODE_ID,
+    ATTR_USER_CODE,
     CONF_ALARM_LEVEL,
     CONF_ALARM_TYPE,
     CONF_ENTITY_ID,
@@ -21,12 +26,24 @@ from .const import (
     ISSUE_URL,
     PLATFORM,
 )
+from openzwavemqtt.const import CommandClass
 import voluptuous as vol
 
 _LOGGER = logging.getLogger(__name__)
 
-ATTR_NAME = "lockname"
+SERVICE_DOMAIN = "lock_manager"
 SERVICE_GENERATE_PACKAGE = "generate_package"
+SERVICE_ADD_CODE = "add_code"
+SERVICE_CLEAR_CODE = "clear_code"
+SERVICE_REFRESH_CODES = "refresh_codes"
+
+OZW_DOMAIN = "ozw"
+ZWAVE_DOMAIN = "lock"
+
+MANAGER = "manager"
+
+SET_USERCODE = "set_usercode"
+CLEAR_USERCODE = "clear_usercode"
 
 
 async def async_setup(hass, config_entry):
@@ -55,6 +72,133 @@ async def async_setup_entry(hass, config_entry):
 
     config_entry.options = config_entry.data
     config_entry.add_update_listener(update_listener)
+
+    async def _refresh_codes(service):
+        """Generate the package files"""
+        _LOGGER.debug("Refresh Codes service: %s", service)
+        entity_id = service.data[ATTR_ENTITY_ID]
+        data = None
+        instance_id = 1
+
+        # Pull the node_id from the entity
+        test = hass.states.get(entity_id)
+        if test is not None:
+            data = test.attributes[ATTR_NODE_ID]
+
+        # Bail out if no node_id could be extracted
+        if data is None:
+            _LOGGER.error("Problem pulling node_id from entity.")
+            return
+
+        # OZW Button press (experimental)
+        if OZW_DOMAIN in hass.data:
+            if data is not None:
+                manager = hass.data[OZW_DOMAIN][MANAGER]
+                lock_values = manager.get_instance(instance_id).get_node(data).values()
+                for value in lock_values:
+                    if (
+                        value.command_class == CommandClass.USER_CODE
+                        and value.index == 255
+                    ):
+                        _LOGGER.debug("DEBUG: Index found valueIDKey: %s", int(value))
+                        value.send_value(True)
+                        value.send_value(False)
+
+        _LOGGER.debug("Refresh codes call completed.")
+
+    async def _add_code(service):
+        """Generate the package files"""
+        _LOGGER.debug("Add Code service: %s", service)
+        entity_id = service.data[ATTR_ENTITY_ID]
+        code_slot = service.data[ATTR_CODE_SLOT]
+        usercode = service.data[ATTR_USER_CODE]
+        using_ozw = config_entry.options[CONF_OZW]
+        data = None
+
+        # Pull the node_id from the entity
+        test = hass.states.get(entity_id)
+        if test is not None:
+            data = test.attributes[ATTR_NODE_ID]
+
+        # Bail out if no node_id could be extracted
+        if data is None:
+            _LOGGER.error("Problem pulling node_id from entity.")
+            return
+
+        servicedata = {
+            ATTR_ENTITY_ID: entity_id,
+            ATTR_CODE_SLOT: code_slot,
+            ATTR_USER_CODE: usercode,
+        }
+
+        _LOGGER.debug("Attempting to call set_usercode...")
+
+        if using_ozw:
+            try:
+                await hass.services.async_call(OZW_DOMAIN, SET_USERCODE, servicedata)
+            except Exception as err:
+                _LOGGER.error(
+                    "Error calling ozw.set_usercode service call: %s", str(err)
+                )
+                pass
+
+        else:
+            try:
+                await hass.services.async_call(ZWAVE_DOMAIN, SET_USERCODE, servicedata)
+            except Exception as err:
+                _LOGGER.error(
+                    "Error calling lock.set_usercode service call: %s", str(err)
+                )
+                pass
+
+        _LOGGER.debug("Add code call completed.")
+
+    async def _clear_code(service):
+        """Generate the package files"""
+        _LOGGER.debug("Clear Code service: %s", service)
+        entity_id = service.data[ATTR_ENTITY_ID]
+        code_slot = service.data[ATTR_CODE_SLOT]
+        using_ozw = config_entry.options[CONF_OZW]
+        data = None
+
+        # Pull the node_id from the entity
+        test = hass.states.get(entity_id)
+        if test is not None:
+            data = test.attributes[ATTR_NODE_ID]
+
+        # Bail out if no node_id could be extracted
+        if data is None:
+            _LOGGER.error("Problem pulling node_id from entity.")
+            return
+
+        servicedata = {
+            ATTR_ENTITY_ID: entity_id,
+            ATTR_CODE_SLOT: code_slot,
+        }
+
+        _LOGGER.debug("Attempting to call clear_usercode...")
+
+        if using_ozw:
+            try:
+                await hass.services.async_call(OZW_DOMAIN, CLEAR_USERCODE, servicedata)
+            except Exception as err:
+                _LOGGER.error(
+                    "Error calling ozw.clear_usercode service call: %s", str(err)
+                )
+                pass
+
+        else:
+            try:
+                await hass.services.async_call(
+                    ZWAVE_DOMAIN, CLEAR_USERCODE, servicedata
+                )
+            except Exception as err:
+                _LOGGER.error(
+                    "Error calling lock.clear_usercode service call: %s", str(err)
+                )
+                pass
+
+        _LOGGER.debug("Clear code call completed.")
 
     async def _generate_package(service):
         """Generate the package files"""
@@ -118,6 +262,7 @@ async def async_setup_entry(hass, config_entry):
                 x += 1
                 code_slots -= 1
             inputlockpinheaders = ",".join(map(str, inputlockpinheaders))
+            using_ozw = f"{entry.options[CONF_OZW]}"
 
             _LOGGER.debug("Creating common YAML file...")
             replacements = {
@@ -161,7 +306,10 @@ async def async_setup_entry(hass, config_entry):
                     "LOCKNAME": lockname,
                     "CASE_LOCK_NAME": lockname,
                     "TEMPLATENUM": str(x),
+                    "LOCKENTITYNAME": lockentityname,
+                    "USINGOZW": using_ozw,
                 }
+
                 output = open(
                     output_path + lockname + "_lock_manager_" + str(x) + ".yaml", "w+",
                 )
@@ -185,10 +333,45 @@ async def async_setup_entry(hass, config_entry):
             _LOGGER.debug("Package generation complete")
 
     hass.services.async_register(
-        DOMAIN,
+        SERVICE_DOMAIN,
         SERVICE_GENERATE_PACKAGE,
         _generate_package,
         schema=vol.Schema({vol.Optional(ATTR_NAME): vol.Coerce(str)}),
+    )
+
+    # Add code
+    hass.services.async_register(
+        SERVICE_DOMAIN,
+        SERVICE_ADD_CODE,
+        _add_code,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_ENTITY_ID): vol.Coerce(str),
+                vol.Required(ATTR_CODE_SLOT): vol.Coerce(int),
+                vol.Required(ATTR_USER_CODE): vol.Coerce(str),
+            }
+        ),
+    )
+
+    # Clear code
+    hass.services.async_register(
+        SERVICE_DOMAIN,
+        SERVICE_CLEAR_CODE,
+        _clear_code,
+        schema=vol.Schema(
+            {
+                vol.Required(ATTR_NODE_ID): vol.Coerce(str),
+                vol.Required(ATTR_CODE_SLOT): vol.Coerce(int),
+            }
+        ),
+    )
+
+    # Button Press
+    hass.services.async_register(
+        SERVICE_DOMAIN,
+        SERVICE_REFRESH_CODES,
+        _refresh_codes,
+        schema=vol.Schema({vol.Required(ATTR_ENTITY_ID): vol.Coerce(str),}),
     )
 
     # Load the code slot sensors if OZW is enabled
@@ -200,7 +383,9 @@ async def async_setup_entry(hass, config_entry):
     # if the use turned on the bool generate the files
     if generate_package is not None:
         servicedata = {"lockname": config_entry.options[CONF_LOCK_NAME]}
-        await hass.services.async_call(DOMAIN, SERVICE_GENERATE_PACKAGE, servicedata)
+        await hass.services.async_call(
+            SERVICE_DOMAIN, SERVICE_GENERATE_PACKAGE, servicedata
+        )
 
     return True
 
@@ -219,7 +404,9 @@ async def update_listener(hass, entry):
 
     if generate_package:
         servicedata = {"lockname": entry.options[CONF_LOCK_NAME]}
-        await hass.services.async_call(DOMAIN, SERVICE_GENERATE_PACKAGE, servicedata)
+        await hass.services.async_call(
+            SERVICE_DOMAIN, SERVICE_GENERATE_PACKAGE, servicedata
+        )
 
     # extract the data and manipulate it
     config = {k: v for k, v in entry.options.items()}
