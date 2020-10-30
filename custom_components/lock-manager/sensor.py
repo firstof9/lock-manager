@@ -148,7 +148,6 @@ class CodesSensor(Entity):
         self._name = sensor_name
         self._lock_name = lock_name
         self._entity_id = entity_id
-        self.update()
 
     @property
     def unique_id(self):
@@ -184,7 +183,7 @@ class CodesSensor(Entity):
             return True
         return False
 
-    async def update(self):
+    async def async_update(self):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
