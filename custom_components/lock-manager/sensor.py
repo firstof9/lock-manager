@@ -1,6 +1,6 @@
 """ Sensor for lock-manager """
 
-from .const import CONF_ENTITY_ID, CONF_SLOTS, CONF_LOCK_NAME, ZWAVE_NETWORK
+from .const import CONF_ENTITY_ID, CONF_SLOTS, CONF_LOCK_NAME, DOMAIN, ZWAVE_NETWORK
 from datetime import timedelta
 from homeassistant.components.ozw import DOMAIN as OZW_DOMAIN
 from openzwavemqtt.const import CommandClass
@@ -13,6 +13,7 @@ MANAGER = "manager"
 ATTR_VALUES = "values"
 ATTR_NODE_ID = "node_id"
 COMMAND_CLASS_USER_CODE = 99
+SERVICE_REFRESH_CODES = "refresh_codes"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -30,7 +31,15 @@ async def async_setup_entry(hass, entry, async_add_entities):
     while x > 0:
         sensor_name = f"code_slot_{x}"
         sensors.append(
-            CodesSensor(data, sensor_name, x, entry.data[CONF_LOCK_NAME], unique_id)
+            CodesSensor(
+                hass,
+                data,
+                entry.data[CONF_ENTITY_ID],
+                sensor_name,
+                x,
+                entry.data[CONF_LOCK_NAME],
+                unique_id,
+            )
         )
         x -= 1
 
@@ -127,14 +136,18 @@ class CodeSlotsData:
 class CodesSensor(Entity):
     """ Represntation of a sensor """
 
-    def __init__(self, data, sensor_name, code_slot, lock_name, unique_id):
+    def __init__(
+        self, hass, data, entity_id, sensor_name, code_slot, lock_name, unique_id
+    ):
         """ Initialize the sensor """
+        self._hass = hass
         self.data = data
         self._code_slot = code_slot
         self._state = None
         self._unique_id = unique_id
         self._name = sensor_name
         self._lock_name = lock_name
+        self._entity_id = entity_id
         self.update()
 
     @property
@@ -171,10 +184,16 @@ class CodesSensor(Entity):
             return True
         return False
 
-    def update(self):
+    async def update(self):
         """Fetch new state data for the sensor.
         This is the only method that should fetch new data for Home Assistant.
         """
+
+        if self._state is None:
+            servicedata = {"entity_id": self._entity_id}
+            await self._hass.services.async_call(
+                DOMAIN, SERVICE_REFRESH_CODES, servicedata
+            )
 
         self.data.update()
         # Using a dict to send the data back
