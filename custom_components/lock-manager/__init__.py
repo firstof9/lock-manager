@@ -25,6 +25,7 @@ from .const import (
     VERSION,
     ISSUE_URL,
     PLATFORM,
+    ZWAVE_NETWORK,
 )
 from openzwavemqtt.const import CommandClass
 import voluptuous as vol
@@ -35,6 +36,7 @@ SERVICE_GENERATE_PACKAGE = "generate_package"
 SERVICE_ADD_CODE = "add_code"
 SERVICE_CLEAR_CODE = "clear_code"
 SERVICE_REFRESH_CODES = "refresh_codes"
+COMMAND_CLASS_USER_CODE = 99
 
 OZW_DOMAIN = "ozw"
 ZWAVE_DOMAIN = "lock"
@@ -102,6 +104,24 @@ async def async_setup_entry(hass, config_entry):
                         _LOGGER.debug("DEBUG: Index found valueIDKey: %s", int(value))
                         value.send_value(True)
                         value.send_value(False)
+
+        # zwave button press
+        elif ZWAVE_NETWORK in hass.data:
+            if data is not None:
+                network = hass.data[ZWAVE_NETWORK]
+                lock_values = (
+                    network.nodes[data]
+                    .get_values(class_id=COMMAND_CLASS_USER_CODE)
+                    .values()
+                )
+
+                for value in lock_values:
+                    if value.index == 254:
+                        _LOGGER.debug(
+                            "DEBUG: Index found valueIDKey: %s", str(value.data)
+                        )
+                        network.manager.pressButton(value.value_id)
+                        network.manager.releaseButton(value.value_id)
 
         _LOGGER.debug("Refresh codes call completed.")
 
