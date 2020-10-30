@@ -118,7 +118,7 @@ async def async_setup_entry(hass, config_entry):
                 for value in lock_values:
                     if value.index == 254:
                         _LOGGER.debug(
-                            "DEBUG: Index found valueIDKey: %s", str(value.data)
+                            "DEBUG: Index found valueIDKey: %s", str(value.value_id)
                         )
                         network.manager.pressButton(value.value_id)
                         network.manager.releaseButton(value.value_id)
