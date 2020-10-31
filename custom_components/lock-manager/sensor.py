@@ -86,7 +86,7 @@ class CodeSlotsData:
                         code = value.value
                         if "*" in str(value.value):
                             _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
-                            continue
+                            code = "unknown"
                         sensor_name = f"code_slot_{value.index}"
                         data[sensor_name] = code
 
