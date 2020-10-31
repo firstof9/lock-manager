@@ -82,7 +82,7 @@ class CodeSlotsData:
                             int(value.index),
                             str(value.value),
                         )
-                        # do not update if the code contains *s
+                        # do not update if the code contains *s the BE469 curse!
                         code = value.value
                         if "*" in str(value.value):
                             _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
@@ -107,7 +107,7 @@ class CodeSlotsData:
                         str(value.index),
                         str(value.data),
                     )
-                    # do not update if the code contains *s
+                    # do not update if the code contains *s the BE469 curse!
                     code = value.data
                     if "*" in str(value.data):
                         _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
