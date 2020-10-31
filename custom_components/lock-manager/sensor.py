@@ -86,7 +86,7 @@ class CodeSlotsData:
                         code = value.value
                         if "*" in str(value.value):
                             _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
-                            code = "unknown"
+                            continue
                         sensor_name = f"code_slot_{value.index}"
                         data[sensor_name] = code
 
@@ -188,11 +188,11 @@ class CodesSensor(Entity):
         This is the only method that should fetch new data for Home Assistant.
         """
 
-        if self._state is None:
-            servicedata = {"entity_id": self._entity_id}
-            await self._hass.services.async_call(
-                DOMAIN, SERVICE_REFRESH_CODES, servicedata
-            )
+        # if self._state is None:
+        #     servicedata = {"entity_id": self._entity_id}
+        #     await self._hass.services.async_call(
+        #         DOMAIN, SERVICE_REFRESH_CODES, servicedata
+        #     )
 
         self.data.update()
         # Using a dict to send the data back
