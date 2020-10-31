@@ -79,14 +79,14 @@ class CodeSlotsData:
                     if value.command_class == CommandClass.USER_CODE:
                         _LOGGER.debug(
                             "DEBUG: code_slot_%s value: %s",
-                            str(value.index),
+                            int(value.index),
                             str(value.value),
                         )
                         # do not update if the code contains *s
                         code = value.value
                         if "*" in str(value.value):
                             _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
-                            continue
+                            code = "unknown"
                         sensor_name = f"code_slot_{value.index}"
                         data[sensor_name] = code
 
