@@ -55,7 +55,7 @@ class CodeSlotsData:
         self._entity_id = config.get(CONF_ENTITY_ID)
         self._data = None
 
-        self.update = Throttle(timedelta(seconds=5))(self.update)
+        self.update = Throttle(timedelta(seconds=1))(self.update)
 
     def update(self):
         """Get the latest data"""
