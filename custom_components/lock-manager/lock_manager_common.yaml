@@ -289,7 +289,8 @@ automation:
                 '12':'All User Codes Deleted',
                 '13':'Single Code Deleted',
                 '14':'New User Code Added',
-                '15':'Duplicate Code' } %}
+                '15':'Duplicate Code',
+                '18': 'New Program Code Entered' } %}
             {% endif %}
             {% if alarm_type_value in alarm_type_code_actions %}
               {{alarm_type_value}};{{ alarm_type_code_actions[alarm_type_value] }};{{usercode_value}}
