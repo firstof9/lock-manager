@@ -104,6 +104,19 @@ class CodeSlotsData:
                     if "*" in str(value.data):
                         _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
                         code = self._invalid_code(value.index)
+
+                    # Build data from entities
+                    enabled_bool = (
+                        f"input_boolean.enabled_{self._lockname}_{value.index}"
+                    )
+                    enabled = self._hass.states.get(enabled_bool)
+
+                    if not enabled:
+                        _LOGGER.debug(
+                            "DEBUG: Utilizing Zwave clear_usercode work around code."
+                        )
+                        code = ""
+
                     sensor_name = f"code_slot_{value.index}"
                     data[sensor_name] = code
 
