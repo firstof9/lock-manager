@@ -160,12 +160,13 @@ class CodeSlotsData:
         pin = self._hass.states.get(pin_data)
 
         # If slot is enabled return the PIN
-        if enabled.state and pin.state.isnumeric():
-            _LOGGER.debug("Utilizing BE469 work around code.")
-            data = pin.state
-        else:
-            _LOGGER.debug("Utilizing FE599 work around code.")
-            data = ""
+        if enabled is not None:
+            if enabled.state and pin.state.isnumeric():
+                _LOGGER.debug("Utilizing BE469 work around code.")
+                data = pin.state
+            else:
+                _LOGGER.debug("Utilizing FE599 work around code.")
+                data = ""
 
         return data
 
