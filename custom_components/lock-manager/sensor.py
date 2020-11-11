@@ -101,7 +101,12 @@ class CodeSlotsData:
                     )
                     # do not update if the code contains *s
                     code = value.data
-                    if "*" in str(value.data):
+
+                    # Check for * or \x00 in lock data and use workaround code if exist
+                    check = ["*", "\x00"]
+                    result = [ele for ele in check if (ele in value.data)]
+
+                    if result:
                         _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
                         code = self._invalid_code(value.index)
 
@@ -111,6 +116,7 @@ class CodeSlotsData:
                     )
                     enabled = self._hass.states.get(enabled_bool)
 
+                    # Report blank slot if occupied by random code
                     if not enabled:
                         _LOGGER.debug(
                             "DEBUG: Utilizing Zwave clear_usercode work around code."
