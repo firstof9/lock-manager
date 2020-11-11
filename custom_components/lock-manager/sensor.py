@@ -117,11 +117,12 @@ class CodeSlotsData:
                     enabled = self._hass.states.get(enabled_bool)
 
                     # Report blank slot if occupied by random code
-                    if not enabled:
-                        _LOGGER.debug(
-                            "DEBUG: Utilizing Zwave clear_usercode work around code."
-                        )
-                        code = ""
+                    if enabled is not None:
+                        if not enabled.state:
+                            _LOGGER.debug(
+                                "DEBUG: Utilizing Zwave clear_usercode work around code."
+                            )
+                            code = ""
 
                     sensor_name = f"code_slot_{value.index}"
                     data[sensor_name] = code
