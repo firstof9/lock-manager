@@ -104,7 +104,7 @@ class CodeSlotsData:
 
                     # Check for * or \x00 in lock data and use workaround code if exist
                     check = ["*", "\x00"]
-                    result = [ele for ele in check if (ele in value.data)]
+                    result = [ele for ele in check if (ele in str(value.data))]
 
                     if result:
                         _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
@@ -160,7 +160,7 @@ class CodeSlotsData:
         pin = self._hass.states.get(pin_data)
 
         # If slot is enabled return the PIN
-        if enabled and pin.state.isnumeric():
+        if enabled.state and pin.state.isnumeric():
             _LOGGER.debug("Utilizing BE469 work around code.")
             data = pin.state
         else:
