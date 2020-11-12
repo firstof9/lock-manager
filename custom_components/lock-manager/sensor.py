@@ -100,7 +100,7 @@ class CodeSlotsData:
                         str(value.data),
                     )
                     # do not update if the code contains *s
-                    code = value.data
+                    code = str(value.data)
 
                     # Remove \x00 if found
                     code = code.replace("\x00", "")
