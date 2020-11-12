@@ -102,11 +102,11 @@ class CodeSlotsData:
                     # do not update if the code contains *s
                     code = value.data
 
-                    # Check for * or \x00 in lock data and use workaround code if exist
-                    check = ["*", "\x00"]
-                    result = [ele for ele in check if (ele in str(value.data))]
+                    # Remove \x00 if found
+                    code = code.replace("\x00", "")
 
-                    if result:
+                    # Check for * in lock data and use workaround code if exist
+                    if "*" in code:
                         _LOGGER.debug("DEBUG: Ignoring code slot with * in value.")
                         code = self._invalid_code(value.index)
 
@@ -118,7 +118,7 @@ class CodeSlotsData:
 
                     # Report blank slot if occupied by random code
                     if enabled is not None:
-                        if not enabled.state:
+                        if enabled.state == "off":
                             _LOGGER.debug(
                                 "DEBUG: Utilizing Zwave clear_usercode work around code."
                             )
@@ -162,7 +162,7 @@ class CodeSlotsData:
 
         # If slot is enabled return the PIN
         if enabled is not None:
-            if enabled.state and pin.state.isnumeric():
+            if enabled.state == "on" and pin.state.isnumeric():
                 _LOGGER.debug("Utilizing BE469 work around code.")
                 data = pin.state
             else:
