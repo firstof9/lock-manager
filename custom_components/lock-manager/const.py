@@ -16,12 +16,13 @@ CONF_ALARM_LEVEL = "alarm_level"
 CONF_ALARM_TYPE = "alarm_type"
 CONF_ENTITY_ID = "entity_id"
 CONF_GENERATE = "generate_package"
+CONF_OZW = "using_ozw"
 CONF_PATH = "packages_path"
 CONF_LOCK_NAME = "lockname"
 CONF_SENSOR_NAME = "sensorname"
 CONF_SLOTS = "slots"
 CONF_START = "start_from"
-CONF_OZW = "using_ozw"
+CONF_SYNC = "sync_with"
 
 # Defaults
 DEFAULT_CODE_SLOTS = 10

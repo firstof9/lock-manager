@@ -21,6 +21,7 @@ from .const import (
     CONF_SENSOR_NAME,
     CONF_SLOTS,
     CONF_START,
+    CONF_SYNC,
     CONF_OZW,
     DEFAULT_CODE_SLOTS,
     DEFAULT_GENERATE,
@@ -42,6 +43,16 @@ def _get_entities(entities, search=None):
     return data
 
 
+def _find_primary(hass):
+    data = hass.data[DOMAIN]
+    results = []
+    for scope in data:
+        if scope[CONF_SYNC] == "" or None:
+            results.append(scope[CONF_LOCK_NAME])
+
+    return results
+
+
 @config_entries.HANDLERS.register(DOMAIN)
 class LockManagerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
     """Config flow for LockManager."""
@@ -61,6 +72,7 @@ class LockManagerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         self._locks = _get_entities(self.hass.data[LOCK_DOMAIN].entities)
         self._doors = _get_entities(self.hass.data[BINARY_DOMAIN].entities)
         self._doors.append("binary_sensor.fake")
+        self._sync = _find_primary()
         self._alarm_type = _get_entities(
             self.hass.data[SENSORS_DOMAIN].entities, ["alarm_type", "access_control"]
         )
@@ -105,6 +117,7 @@ class LockManagerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         alarm_level = ""
         alarm_type = ""
         using_ozw = False
+        sync_with = ""
 
         if user_input is not None:
             if CONF_ENTITY_ID in user_input:
@@ -125,6 +138,8 @@ class LockManagerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
                 alarm_type = user_input[CONF_ALARM_TYPE]
             if CONF_OZW in user_input:
                 using_ozw = user_input[CONF_OZW]
+            if CONF_SYNC in user_input:
+                sync_with = user_input[CONF_SYNC]
 
         data_schema = OrderedDict()
         data_schema[vol.Required(CONF_ENTITY_ID, default=entity_id)] = vol.In(
@@ -142,6 +157,7 @@ class LockManagerFlowHandler(config_entries.ConfigFlow, domain=DOMAIN):
         data_schema[vol.Optional(CONF_ALARM_TYPE, default=alarm_type)] = vol.In(
             self._alarm_type
         )
+        data_schema[vol.Optional(CONF_SYNC, default=sync_with)] = vol.In(self._sync)
         data_schema[vol.Required(CONF_PATH, default=packagepath)] = str
         data_schema[vol.Required(CONF_OZW, default=using_ozw)] = bool
         return self.async_show_form(
@@ -176,6 +192,7 @@ class LockManagerOptionsFlow(config_entries.OptionsFlow):
         self._locks = _get_entities(self.hass.data[LOCK_DOMAIN].entities)
         self._doors = _get_entities(self.hass.data[BINARY_DOMAIN].entities)
         self._doors.append("binary_sensor.fake")
+        self._sync = _find_primary()
         self._sensors = _get_entities(self.hass.data[SENSORS_DOMAIN].entities)
         self._alarm_type = _get_entities(
             self.hass.data[SENSORS_DOMAIN].entities, ["alarm_type", "access_control"]
@@ -219,6 +236,7 @@ class LockManagerOptionsFlow(config_entries.OptionsFlow):
         alarm_level = self.config.options.get(CONF_ALARM_LEVEL)
         alarm_type = self.config.options.get(CONF_ALARM_TYPE)
         using_ozw = self.config.options.get(CONF_OZW)
+        sync_with = self.config.options.get(CONF_SYNC)
 
         if user_input is not None:
             if CONF_ENTITY_ID in user_input:
@@ -239,6 +257,8 @@ class LockManagerOptionsFlow(config_entries.OptionsFlow):
                 alarm_type = user_input[CONF_ALARM_TYPE]
             if CONF_OZW in user_input:
                 using_ozw = user_input[CONF_OZW]
+            if CONF_SYNC in user_input:
+                sync_with = user_input[CONF_SYNC]
 
         data_schema = OrderedDict()
         data_schema[vol.Required(CONF_ENTITY_ID, default=entity_id)] = vol.In(
@@ -256,6 +276,7 @@ class LockManagerOptionsFlow(config_entries.OptionsFlow):
         data_schema[vol.Optional(CONF_ALARM_TYPE, default=alarm_type)] = vol.In(
             self._alarm_type
         )
+        data_schema[vol.Optional(CONF_SYNC, default=sync_with)] = vol.In(self._sync)
         data_schema[vol.Required(CONF_PATH, default=packagepath)] = str
         data_schema[vol.Required(CONF_OZW, default=using_ozw)] = bool
         return self.async_show_form(
